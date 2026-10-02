@@ -10,7 +10,7 @@ export const DURATION = {
   tooltip: 0.16,
   popover: 0.2,
   dropdown: 0.22,
-  modal: 0.32,
+  modal: 0.28,
   drawer: 0.42,
   reveal: 0.62,
   scrubbed: 0.5,

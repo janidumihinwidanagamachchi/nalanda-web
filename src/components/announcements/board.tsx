@@ -1,8 +1,9 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { DURATION, EASE, SPRING } from "@/constants/motion";
+import { useUrlFilter } from "@/lib/use-url-filter";
 import {
   ANNOUNCEMENT_CATEGORIES,
   ANNOUNCEMENTS,
@@ -20,7 +21,11 @@ const SEVERITY_STYLE: Record<Severity, string> = {
 
 export function AnnouncementsBoard() {
   const reduce = useReducedMotion();
-  const [filter, setFilter] = useState<AnnouncementCategory | "All">("All");
+  const [filter, setFilter] = useUrlFilter<AnnouncementCategory | "All">(
+    "category",
+    ["All", ...ANNOUNCEMENT_CATEGORIES],
+    "All",
+  );
 
   const today = useMemo(() => new Date(), []);
   const live = useMemo(

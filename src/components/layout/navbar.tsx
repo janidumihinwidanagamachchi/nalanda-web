@@ -113,7 +113,11 @@ export function Navbar() {
         {open ? (
           <motion.div
             id={panelId}
-            className="fixed inset-x-0 top-16 bottom-0 overflow-y-auto border-t border-line bg-surface md:top-[72px]"
+            className="fixed inset-x-0 top-16 bottom-0 overflow-y-auto overscroll-contain border-t border-line bg-surface md:top-[72px]"
+            style={{
+              paddingBottom: "env(safe-area-inset-bottom)",
+              paddingRight: "env(safe-area-inset-right)",
+            }}
             initial={reduce ? false : { opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={reduce ? undefined : { opacity: 0, y: -12 }}

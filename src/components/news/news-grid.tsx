@@ -3,15 +3,21 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
 import { ArrowRight } from "@phosphor-icons/react";
 import { DURATION, EASE, SPRING } from "@/constants/motion";
 import { ARTICLES, NEWS_CATEGORIES, type NewsCategory } from "@/data/news";
 import { thumbFor } from "@/data/media";
+import { useFinePointer } from "@/lib/pointer";
+import { useUrlFilter } from "@/lib/use-url-filter";
 
 export function NewsGrid() {
   const reduce = useReducedMotion();
-  const [filter, setFilter] = useState<NewsCategory | "All">("All");
+  const fine = useFinePointer();
+  const [filter, setFilter] = useUrlFilter<NewsCategory | "All">(
+    "category",
+    ["All", ...NEWS_CATEGORIES],
+    "All",
+  );
 
   const shown =
     filter === "All" ? ARTICLES : ARTICLES.filter((a) => a.category === filter);
@@ -69,7 +75,9 @@ export function NewsGrid() {
                 <div className="relative aspect-[3/2] overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface-sunken">
                   <motion.div
                     className="h-full w-full"
-                    whileHover={reduce ? undefined : { scale: 1.04 }}
+                    whileHover={
+                      reduce || !fine ? undefined : { scale: 1.04 }
+                    }
                     transition={{ duration: 0.6, ease: EASE.strongOut }}
                   >
                     <Image

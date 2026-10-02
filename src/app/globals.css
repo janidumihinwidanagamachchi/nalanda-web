@@ -103,6 +103,20 @@
     font-synthesis-weight: none;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: color-mix(in srgb, var(--accent) 18%, transparent);
+    overflow-x: hidden;
+  }
+
+  a,
+  button,
+  summary,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+
+  p,
+  dd {
+    font-variant-numeric: tabular-nums;
   }
 
   h1, h2, h3, h4 {

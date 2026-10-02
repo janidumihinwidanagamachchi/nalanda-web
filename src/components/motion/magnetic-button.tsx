@@ -1,24 +1,15 @@
 "use client";
 
-import { motion, useMotionValue, useReducedMotion, useSpring } from "motion/react";
-import { useRef, useSyncExternalStore, type ReactNode } from "react";
+import {
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useSpring,
+  useTransform,
+} from "motion/react";
+import { useRef, type ReactNode } from "react";
+import { useFinePointer } from "@/lib/pointer";
 import { DURATION, EASE, SCALE, SPRING } from "@/constants/motion";
-
-const POINTER_QUERY = "(hover: hover) and (pointer: fine)";
-
-function subscribePointer(onChange: () => void) {
-  const query = window.matchMedia(POINTER_QUERY);
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
-
-function getPointerState() {
-  return window.matchMedia(POINTER_QUERY).matches;
-}
-
-function getServerPointerState() {
-  return false;
-}
 
 type MagneticProps = {
   children: ReactNode;
@@ -28,6 +19,8 @@ type MagneticProps = {
   variant?: "solid" | "outline" | "ghost";
   external?: boolean;
   ariaLabel?: string;
+  onClick?: () => void;
+  type?: "button" | "submit";
 };
 
 const VARIANTS = {
@@ -46,19 +39,21 @@ export function MagneticButton({
   variant = "solid",
   external = false,
   ariaLabel,
+  onClick,
+  type = "button",
 }: MagneticProps) {
   const reduce = useReducedMotion();
   const ref = useRef<HTMLSpanElement>(null);
-  const fine = useSyncExternalStore(
-    subscribePointer,
-    getPointerState,
-    getServerPointerState,
-  );
+  const fine = useFinePointer();
 
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const springX = useSpring(x, SPRING.firm);
   const springY = useSpring(y, SPRING.firm);
+  const transform = useTransform(
+    [springX, springY],
+    ([tx, ty]: number[]) => `translateX(${tx}px) translateY(${ty}px)`,
+  );
   const active = fine && !reduce;
 
   const onMove = (event: React.PointerEvent<HTMLSpanElement>) => {
@@ -80,7 +75,7 @@ export function MagneticButton({
       ref={ref}
       onPointerMove={onMove}
       onPointerLeave={reset}
-      style={active ? { x: springX, y: springY } : undefined}
+      style={active ? { transform } : undefined}
       className="inline-block"
     >
       <motion.span
@@ -98,6 +93,7 @@ export function MagneticButton({
       <a
         href={href}
         aria-label={ariaLabel}
+        onClick={onClick}
         {...(external ? { target: "_blank", rel: "noreferrer noopener" } : {})}
         className="inline-block"
       >
@@ -106,5 +102,9 @@ export function MagneticButton({
     );
   }
 
-  return inner;
+  return (
+    <button type={type} onClick={onClick} className="inline-block">
+      {inner}
+    </button>
+  );
 }

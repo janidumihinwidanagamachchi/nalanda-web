@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { Suspense } from "react";
 import { PageHeader, Section, Note } from "@/components/ui/section";
+import { ListSkeleton } from "@/components/ui/skeleton";
 import { AnnouncementsBoard } from "@/components/announcements/board";
 import { SITE } from "@/data/site";
 import { ROUTES } from "@/constants/site";
-import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Announcements",
@@ -20,7 +22,9 @@ export default function AnnouncementsPage() {
       />
 
       <Section className="pt-0">
-        <AnnouncementsBoard />
+        <Suspense fallback={<ListSkeleton rows={6} />}>
+          <AnnouncementsBoard />
+        </Suspense>
       </Section>
 
       <Section className="border-t border-line bg-surface-sunken">

@@ -1,0 +1,49 @@
+import type { MetadataRoute } from "next";
+import { ROUTES } from "@/constants/site";
+import { SITE } from "@/data/site";
+import { ARTICLES } from "@/data/news";
+
+export default function sitemap(): MetadataRoute.Sitemap {
+  const base = SITE.website;
+  const now = new Date();
+
+  const priority = (p: number) => ({ priority: p });
+
+  const staticRoutes = [
+    { path: ROUTES.home, priority: 1 },
+    { path: ROUTES.about, priority: 0.8 },
+    { path: ROUTES.history, priority: 0.8 },
+    { path: ROUTES.pastPrincipals, priority: 0.6 },
+    { path: ROUTES.centenary, priority: 0.7 },
+    { path: ROUTES.academics, priority: 0.9 },
+    { path: ROUTES.admissions, priority: 0.9 },
+    { path: ROUTES.announcements, priority: 0.9 },
+    { path: ROUTES.news, priority: 0.8 },
+    { path: ROUTES.extraCurricular, priority: 0.7 },
+    { path: ROUTES.clubs, priority: 0.6 },
+    { path: ROUTES.societies, priority: 0.6 },
+    { path: ROUTES.sports, priority: 0.6 },
+    { path: ROUTES.community, priority: 0.6 },
+    { path: ROUTES.channels, priority: 0.6 },
+    { path: ROUTES.downloads, priority: 0.7 },
+    { path: ROUTES.gallery, priority: 0.5 },
+    { path: ROUTES.calendar, priority: 0.5 },
+    { path: ROUTES.alumni, priority: 0.6 },
+    { path: ROUTES.campus, priority: 0.5 },
+    { path: ROUTES.newsletter, priority: 0.4 },
+    { path: ROUTES.contact, priority: 0.7 },
+  ];
+
+  return [
+    ...staticRoutes.map((route) => ({
+      url: `${base}${route.path}`,
+      lastModified: now,
+      ...priority(route.priority),
+    })),
+    ...ARTICLES.map((article) => ({
+      url: `${base}${ROUTES.news}/${article.slug}`,
+      lastModified: new Date(article.publishedAt),
+      ...priority(0.6),
+    })),
+  ];
+}

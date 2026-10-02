@@ -6,9 +6,11 @@ import { X } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { DURATION, EASE } from "@/constants/motion";
 import { GALLERY_SLOTS, type MediaSlot } from "@/data/media";
+import { useFinePointer } from "@/lib/pointer";
 
 export function GalleryGrid() {
   const reduce = useReducedMotion();
+  const fine = useFinePointer();
   const [open, setOpen] = useState<MediaSlot | null>(null);
 
   useEffect(() => {
@@ -36,7 +38,7 @@ export function GalleryGrid() {
               delay: reduce ? 0 : (index % 3) * 0.07,
               ease: EASE.strongOut,
             }}
-            whileHover={reduce ? undefined : { scale: 0.985 }}
+            whileHover={reduce || !fine ? undefined : { scale: 0.985 }}
           >
             <Image
               src={slot.src}
@@ -62,6 +64,7 @@ export function GalleryGrid() {
         {open ? (
           <motion.div
             className="fixed inset-0 z-[400] flex items-center justify-center bg-surface/95 p-6 backdrop-blur-sm"
+            style={{ overscrollBehavior: "contain" }}
             initial={reduce ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={reduce ? undefined : { opacity: 0 }}
