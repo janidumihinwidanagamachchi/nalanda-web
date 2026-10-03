@@ -27,9 +27,11 @@ export async function fetchYoutubeFeed(): Promise<YoutubeFeed> {
   };
 
   try {
+    // Build-time fetch. Static export has no server, so incremental
+    // revalidation is unavailable; the feed is baked in at deploy time and
+    // refreshes whenever the deploy workflow runs.
     const response = await fetch(
       `https://www.youtube.com/feeds/videos.xml?channel_id=${YOUTUBE_CHANNEL_ID}`,
-      { next: { revalidate: 3600 } },
     );
     if (!response.ok) return fallback;
 

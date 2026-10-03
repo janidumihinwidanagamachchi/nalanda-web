@@ -41,8 +41,11 @@ const NEWS_SLUG_MARKER = "National Cadet Band Championship";
 const BROWSER_CHECK_ROUTES = ["/", "/history", "/extra-curricular/clubs"];
 const BROWSER_CMD_TIMEOUT_MS = 30_000;
 
-let serverProc = null;
+let serverHttp = null;
 let serverPort = null;
+
+// Must match basePath in next.config.ts.
+const BASE_PATH = "/nalanda-web";
 
 function log(msg = "") {
   console.log(msg);
@@ -135,26 +138,15 @@ function fetchText(url) {
   });
 }
 
-function killServer() {
-  if (!serverProc) return Promise.resolve();
+async function killServer() {
+  if (!serverHttp) return Promise.resolve();
   return new Promise((resolve) => {
-    const done = () => {
-      serverProc = null;
+    serverHttp.close(() => {
+      serverHttp = null;
       resolve();
-    };
-    if (process.platform === "win32") {
-      spawn(`taskkill /pid ${serverProc.pid} /t /f`, { shell: true }).on(
-        "close",
-        done,
-      );
-    } else {
-      serverProc.kill("SIGTERM");
-      const t = setTimeout(() => serverProc?.kill("SIGKILL"), 5000);
-      serverProc.on("exit", () => {
-        clearTimeout(t);
-        done();
-      });
-    }
+    });
+    // Drop keep-alive sockets so close() is not held open.
+    serverHttp.closeAllConnections?.();
   });
 }
 
@@ -205,81 +197,60 @@ async function stageLint() {
 }
 
 async function stageRoutes() {
-  serverPort = await getFreePort();
-  section(`Starting next start on port ${serverPort}`);
-  serverProc = spawn(`npx next start --port ${serverPort}`, {
-    stdio: ["ignore", "pipe", "pipe"],
-    shell: true,
-  });
-
-  let started = false;
-  const ready = new Promise((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error("server did not start in 60s")),
-      60_000,
-    );
-    const check = (d) => {
-      const text = d.toString();
-      if (
-        text.includes("Ready") ||
-        text.includes(`http://localhost:${serverPort}`)
-      ) {
-        started = true;
-        clearTimeout(timer);
-        resolve();
-      }
+  if (!existsSync("out")) {
+    return {
+      ok: false,
+      message: "No out/ directory. The build did not produce a static export.",
     };
-    serverProc.stdout.on("data", check);
-    serverProc.stderr.on("data", check);
-    serverProc.on("error", reject);
-    serverProc.on("close", (code) => {
-      if (!started) reject(new Error(`server exited early with code ${code}`));
-    });
+  }
+
+  serverPort = await getFreePort();
+  section(`Serving out/ on port ${serverPort}`);
+  const { createServer } = await import("./serve-export.mjs");
+  serverHttp = createServer();
+  await new Promise((resolve, reject) => {
+    serverHttp.once("error", reject);
+    serverHttp.listen(serverPort, "127.0.0.1", resolve);
   });
 
-  await ready;
-
-  // Wait an extra beat for the first request to be warm.
-  await new Promise((r) => setTimeout(r, 750));
-
-  const base = `http://127.0.0.1:${serverPort}`;
+  const base = `http://127.0.0.1:${serverPort}${BASE_PATH}`;
   const failures = [];
   const routes = Object.keys(MARKERS);
 
   for (const route of routes) {
     try {
-      const { status, body } = await fetchText(`${base}${route}`);
+      const { status, body } = await fetchText(`${base}${route}/`);
       if (status !== 200) {
-        failures.push(`${route}: expected 200, got ${status}`);
+        failures.push(`${route}/: expected 200, got ${status}`);
         continue;
       }
       const marker = MARKERS[route];
       if (!body.includes(marker)) {
-        failures.push(`${route}: missing marker "${marker}"`);
+        failures.push(`${route}/: missing marker "${marker}"`);
       }
     } catch (err) {
-      failures.push(`${route}: ${err.message}`);
+      failures.push(`${route}/: ${err.message}`);
     }
   }
 
   // News [slug]
   try {
-    const { status, body } = await fetchText(`${base}/news/${NEWS_SLUG}`);
+    const { status, body } = await fetchText(`${base}/news/${NEWS_SLUG}/`);
     if (status !== 200) {
-      failures.push(`/news/${NEWS_SLUG}: expected 200, got ${status}`);
+      failures.push(`/news/${NEWS_SLUG}/: expected 200, got ${status}`);
     } else if (!body.includes(NEWS_SLUG_MARKER)) {
       failures.push(
-        `/news/${NEWS_SLUG}: missing marker "${NEWS_SLUG_MARKER}"`,
+        `/news/${NEWS_SLUG}/: missing marker "${NEWS_SLUG_MARKER}"`,
       );
     }
   } catch (err) {
-    failures.push(`/news/${NEWS_SLUG}: ${err.message}`);
+    failures.push(`/news/${NEWS_SLUG}/: ${err.message}`);
   }
 
   // 404
   try {
     const { status, body } = await fetchText(
-      `${base}/no-such-page-verify-test`,
+      `${base}/no-such-page-verify-test/`,
     );
     if (status !== 404) {
       failures.push(`404 route: expected 404, got ${status}`);
@@ -288,6 +259,40 @@ async function stageRoutes() {
     }
   } catch (err) {
     failures.push(`404 route: ${err.message}`);
+  }
+
+  // Assets must resolve under the basePath, and nothing may resolve outside it.
+  try {
+    const { body } = await fetchText(`${base}/`);
+    const attrs = [
+      ...body.matchAll(/(?:src|href)="(\/[^"]*_next\/static\/[^"]+)"/g),
+    ].map((m) => m[1]);
+
+    if (attrs.length === 0) {
+      failures.push("no /_next/static asset references found in the home page");
+    } else {
+      const missingBase = attrs.filter((a) => !a.startsWith(`${BASE_PATH}/`));
+      if (missingBase.length) {
+        failures.push(
+          `${missingBase.length} asset reference(s) missing the ${BASE_PATH} prefix, e.g. ${missingBase[0]}`,
+        );
+      }
+
+      // Fetch a sample: first stylesheet, then first script chunk.
+      const css = attrs.find((a) => a.endsWith(".css"));
+      const js = attrs.find((a) => a.endsWith(".js"));
+      for (const asset of [css, js].filter(Boolean)) {
+        const { status } = await fetchText(`http://127.0.0.1:${serverPort}${asset}`);
+        if (status !== 200) {
+          failures.push(`asset ${asset}: expected 200, got ${status}`);
+        }
+      }
+      if (!css || !js) {
+        failures.push("could not find both a stylesheet and a script chunk to fetch");
+      }
+    }
+  } catch (err) {
+    failures.push(`asset check: ${err.message}`);
   }
 
   if (failures.length) {
@@ -299,7 +304,7 @@ async function stageRoutes() {
   }
   return {
     ok: true,
-    message: `${routes.length} routes + /news/[slug] + 404 passed content markers`,
+    message: `${routes.length} routes + /news/[slug] + 404 + _next asset passed`,
   };
 }
 
