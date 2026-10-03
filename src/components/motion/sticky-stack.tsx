@@ -3,7 +3,7 @@
 import { useGSAP } from "@gsap/react";
 import { useReducedMotion } from "motion/react";
 import { useRef, type ReactNode } from "react";
-import { bridgeLenis, gsap, registerScrollTrigger } from "@/lib/scroll";
+import { bridgeLenis, gsap, registerScrollTrigger, ScrollTrigger } from "@/lib/scroll";
 
 type StickyStackProps = {
   children: ReactNode[];
