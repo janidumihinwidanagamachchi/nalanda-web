@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ASSET_BASE,
   NAV_PRIMARY,
@@ -46,7 +46,8 @@ export function Navbar() {
   const headerRef = useRef<HTMLElement>(null);
   const navRef = useRef<HTMLDivElement>(null);
   const triggerRefs = useRef(new Map<string, HTMLButtonElement>());
-  const panelId = useId();
+  const panelId = (label: string) =>
+    `nav-panel-${label.toLowerCase().replace(/\s+/g, "-")}`;
   const [openMenu, setOpenMenu] = useState<string | null>(null);
 
   /**
@@ -177,7 +178,11 @@ export function Navbar() {
                         else triggerRefs.current.delete(item.label);
                       }}
                       aria-expanded={openMenu === item.label}
-                      aria-controls={panelId}
+                      aria-controls={
+                        openMenu === item.label
+                          ? panelId(item.label)
+                          : undefined
+                      }
                       onClick={() =>
                         setOpenMenu((v) => (v === item.label ? null : item.label))
                       }
@@ -195,8 +200,8 @@ export function Navbar() {
 
                     {openMenu === item.label ? (
                       <div
-                        id={panelId}
-                        className="absolute left-0 top-[calc(100%+0.75rem)] w-60 rounded-xl border bg-floating p-1.5 shadow-[0_12px_40px_color-mix(in_srgb,var(--ink)_14%,transparent)]"
+                        id={panelId(item.label)}
+                        className="absolute left-0 top-full w-60 rounded-xl border bg-floating p-1.5 pt-3 shadow-[0_12px_40px_color-mix(in_srgb,var(--ink)_14%,transparent)]"
                       >
                         {item.children.map((child) => (
                           <Link
