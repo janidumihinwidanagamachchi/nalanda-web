@@ -1,6 +1,7 @@
 # Nalanda College, Colombo
 
-A site for Nalanda College, Colombo, built with Next.js 16, Tailwind v4, Motion and GSAP.
+A site for Nalanda College, Colombo, built with Next.js 16 and Tailwind v4, and
+edited by the college through a Supabase-backed `/admin` panel.
 
 ```bash
 npm install
@@ -12,7 +13,8 @@ npm run dev
 | Dev server | `http://localhost:3000` |
 | Build | `npm run build` |
 | Lint | `npm run lint` |
-| Link check | `npm run check-links` |
+| Full gate | `npm run verify` |
+| Content panel | `/admin` — see [`docs/admin-panel.md`](docs/admin-panel.md) |
 
 ---
 
@@ -73,35 +75,64 @@ Entries that were **corrected or removed during verification**:
 
 ## Motion
 
-Motion intensity is high throughout, but every animation earns its place: it
-either orients, gives feedback, indicates a state change, or bridges a change
-that would otherwise be abrupt.
+There is no JavaScript animation library. Motion, GSAP and Lenis were all removed:
+none of them can survive a static export without a hydration cost, and on a site
+this size the same result is cheaper in CSS. Every affordance here — hover, focus,
+disclosure, the gallery lightbox, the mobile drawer — is a CSS transition or a
+`details` element. `npm run verify` fails if any of those packages reappear, so the
+decision cannot quietly reverse.
 
 Rules the build holds to:
 
 - `transform` and `opacity` only. Never `width`, `height`, `margin`, `top` or `left`.
-- Never `scale(0)` on an entrance. Entrances start at `scale(0.94)` with opacity.
+- No `scale(0)` on an entrance. Entrances start slightly under full size.
 - `ease-in` is never used on UI. Entrances and exits use `ease-out`.
-- UI durations stay under 300ms.
-- No `window.addEventListener("scroll")`. Scroll is read through Motion's
-  `useScroll` or GSAP ScrollTrigger.
-- GSAP work runs inside `useGSAP` with `gsap.context` and is reverted on unmount.
-- Scroll and pointer values use `useMotionValue`, never React state.
-- **Everything honours `prefers-reduced-motion`.** Loops, parallax, scroll
-  hijacks and magnetic hover all collapse to static.
-
-The two heaviest scroll moments are on `/history` (a GSAP pinned sticky-stack
-over the founding timeline) and `/extra-curricular/clubs` (a horizontal
-scroll pan).
+- UI durations stay under 300ms, and read from a token rather than a literal.
+- Hover effects are gated behind `@media (hover: hover) and (pointer: fine)`, so a
+  tap on a touch device does not leave an effect stuck on.
+- **Everything honours `prefers-reduced-motion`.**
+- Nothing hijacks scroll. The page scrolls the way the reader expects.
 
 ### Reading the source
 
 | File | Purpose |
 |---|---|
-| `src/constants/motion.ts` | Every easing, duration band, spring and stagger value |
-| `src/components/motion/` | The primitives all pages are built from |
-| `src/components/motion/sticky-stack.tsx` | GSAP pinned stack and horizontal pan |
-| `src/lib/scroll.ts` | ScrollTrigger registration and the Lenis bridge |
+| `src/app/globals.css` | The tokens every transition reads: `--motion-fast`, `--motion-uniform`, `--motion-slow` |
+| `src/components/ui/` | The primitives pages are built from, each carrying its own transitions |
+
+---
+
+## Content administration
+
+Announcements, news and photographs are held in Supabase and edited by the
+college at `/admin`. Everything else on the site — history, principals,
+academics, admissions, the gaps and caveats — stays in version control as
+TypeScript, because those are not facts that change between one secretary's
+tenure and the next.
+
+The awkward part is that the site is a static export with no server. It is
+resolved like this:
+
+| | |
+|---|---|
+| Reading the database | At **build time**, in Node, using the anon key under RLS. Every article becomes its own prerendered HTML file, so search engines and link previews work exactly as before |
+| Showing the visitor a draft | Never. A row with `published = false` is refused by the database policy itself, so it cannot leak through a query the site did not think to filter |
+| Publishing an edit | The save triggers a **GitHub `repository_dispatch`**, which reruns the deploy. The change is live after the rebuild finishes |
+| Signing in | Supabase email and password. Accounts are created in the Supabase dashboard; the panel cannot create them |
+| Authorisation | A row in the `admins` table. It has no insert policy, so nothing running in a browser can grant itself access |
+| Photographs | Supabase Storage, public bucket, admin-only writes |
+
+There is no service-role key anywhere in this project, and `npm run verify` fails
+if one appears. On a static site every `NEXT_PUBLIC_` value is published in the
+bundle; a service-role key would not be a leak to be noticed later but a leak
+already in production.
+
+The site also builds with no Supabase environment at all, using the content in
+`src/data` as its fallback — so a fork, a preview build, and a contributor with
+no access to the database all still produce the whole site.
+
+Full setup, including the schema, the webhook, and granting a colleague access:
+**[`docs/admin-panel.md`](docs/admin-panel.md)**.
 
 ---
 
@@ -109,17 +140,20 @@ scroll pan).
 
 ### Motion review
 
-Run against `review-animations`. Three findings, all fixed:
+Run when the animation libraries were removed, against `review-animations`. The
+work was subtractive: everything a library was doing is now done in CSS, so the
+findings were about what to delete and what to keep.
 
 | Before | After | Why |
 | --- | --- | --- |
-| `magnetic-button.tsx` drove the element with the `x` / `y` shorthands | Composed a single `translateX() translateY()` string via `useTransform` | The shorthands are not hardware-accelerated and drop frames under load |
-| `DURATION.modal` was `0.32s` on the gallery lightbox | `0.28s` | UI overlays stay under 300ms |
-| `whileHover` scale on news cards and gallery tiles was ungated | Gated behind `(hover: hover) and (pointer: fine)` | Touch devices emulate hover, so the effect fired on tap |
+| GSAP pinned stack and horizontal pan on `/history` and `/extra-curricular/clubs` | Static layout with CSS transitions | A pinned scroll sequence needs JS on every frame; on a static export that is hydration cost for an effect nobody required |
+| Lenis smooth scroll | Native scroll | Hijacking scroll fights the reader and breaks `prefers-reduced-motion` |
+| `magnetic-button` driving `x` / `y` shorthands | Hover nudges via a CSS `translate` | The shorthands were never hardware-accelerated here |
+| `whileHover` scale on cards and tiles, ungated | Gated behind `(hover: hover) and (pointer: fine)` | Touch devices emulate hover, so the effect fired on tap |
 
-Confirmed clean: no `transition: all`, no `scale(0)`, no `ease-in` on UI, no
-animation of layout properties, GSAP work inside `useGSAP` with revert, scroll
-read through `useScroll` or ScrollTrigger rather than a window listener.
+Confirmed: no `transition: all`, no `scale(0)`, no `ease-in` on UI, no animation
+of layout properties, no scroll listener, and no animation dependency in
+`package.json`.
 
 ### Web interface guidelines
 
@@ -148,10 +182,13 @@ Still worth a human eye:
 
 Kept visible rather than quietly fixed.
 
-1. **Every image is a placeholder.** 13 slots across the hero, gallery and
-   campus use seeded `picsum.photos` images. The slots are all in
+1. **Eleven of the photographs are still placeholders.** 11 slots across the
+   hero, gallery and campus use seeded `picsum.photos` images, listed in
    `src/data/media.ts`. This is the single largest gap between this and a site
-   that looks finished. A centenary school site is carried by its archive.
+   that looks finished. A centenary school site is carried by its archive, and the
+   archive is not online. `/credits` names every one of them, and the site labels
+   them as placeholders wherever they appear — the `/admin` panel makes replacing
+   them a matter of uploading a file and supplying its provenance.
 
 2. **The YouTube channel appears inactive.** The verified channel's public RSS
    feed returns uploads with a latest date in 2021. `/channels` renders the six
@@ -212,7 +249,7 @@ Listed in `NEEDS_SUPPLY` in `src/data/site.ts`, and shown to visitors on
 ## Stack
 
 Next.js 16 (App Router, Turbopack) · React 19 · TypeScript · Tailwind v4 ·
-Motion 14 · GSAP 3 with ScrollTrigger · Lenis · Phosphor Icons
+Supabase (Postgres, Auth and Storage) · no animation dependencies
 
 Type is Newsreader for display and Geist for UI. The palette is the college's own
 maroon and silver, defined once in CSS custom properties and locked across both

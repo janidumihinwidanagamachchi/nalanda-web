@@ -1,9 +1,52 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight } from "@phosphor-icons/react/dist/ssr";
+import { ArrowRight, ArrowUpRight, ImageSquare } from "@phosphor-icons/react/dist/ssr";
 import type { ReactNode } from "react";
-import { Reveal } from "@/components/motion/reveal";
+import { Card } from "@/components/ui/panel";
+import { cn } from "@/lib/utils";
 import type { MediaSlot } from "@/data/media";
+
+/**
+ * Domain-level cards. `Card` is the generic panel; these add the link and
+ * metadata behaviour the site's content needs.
+ */
+
+/**
+ * A photograph the school has not supplied yet.
+ *
+ * The earlier version pointed these slots at `picsum.photos`, which put
+ * photographs of unrelated places and objects on a school site under a caption
+ * describing the college's own buildings. A wrong photograph is worse than no
+ * photograph: it looks like a real record of something that never happened.
+ *
+ * So an empty slot now renders as an empty slot — a drawn frame naming what is
+ * being waited on. The image returns when the archive does.
+ */
+export function AwaitingPlate({
+  slot,
+  className,
+}: {
+  slot: MediaSlot;
+  className?: string;
+}) {
+  // Placeholder alts are written "Placeholder: the college pavilion", so the
+  // prefix is stripped and the remainder becomes the caption rather than being
+  // repeated as a label.
+  const subject = slot.alt.replace(/^Placeholder:\s*/i, "");
+
+  return (
+    <div
+      className={cn(
+        "plate-awaiting flex-col gap-3 px-6 text-center",
+        className,
+      )}
+    >
+      <ImageSquare size={22} className="text-quiet-ink" aria-hidden />
+      <span className="field">Awaiting photograph</span>
+      <span className="max-w-[24ch] text-sm text-quiet-ink">{subject}</span>
+    </div>
+  );
+}
 
 type FrameProps = {
   slot: MediaSlot;
@@ -12,10 +55,22 @@ type FrameProps = {
   sizes?: string;
 };
 
-export function MediaFrame({ slot, className = "", priority = false, sizes }: FrameProps) {
+export function MediaFrame({
+  slot,
+  className,
+  priority = false,
+  sizes,
+}: FrameProps) {
+  if (slot.placeholder) {
+    return <AwaitingPlate slot={slot} className={className} />;
+  }
+
   return (
     <figure
-      className={`relative overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface-sunken ${className}`}
+      className={cn(
+        "relative overflow-hidden rounded-xl border bg-alt",
+        className,
+      )}
     >
       <Image
         src={slot.src}
@@ -26,11 +81,6 @@ export function MediaFrame({ slot, className = "", priority = false, sizes }: Fr
         sizes={sizes ?? "(max-width: 768px) 100vw, 50vw"}
         className="h-full w-full object-cover"
       />
-      {slot.placeholder ? (
-        <span className="absolute bottom-2 left-2 rounded-[2px] bg-surface/80 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-ink-subtle backdrop-blur-sm">
-          Placeholder
-        </span>
-      ) : null}
     </figure>
   );
 }
@@ -52,81 +102,77 @@ export function LinkCard({
   href,
   external = false,
   children,
-  className = "",
+  className,
 }: CardProps) {
   const inner = (
     <>
       <div className="flex items-start justify-between gap-4">
         <div>
-          {meta ? (
-            <p className="text-[11px] uppercase tracking-[0.16em] text-ink-subtle">
-              {meta}
-            </p>
-          ) : null}
-          <h3 className="mt-2 font-display text-xl leading-snug">{title}</h3>
+          {meta ? <p className="field">{meta}</p> : null}
+          <h3 className="mt-3 font-serif text-xl leading-snug">{title}</h3>
         </div>
-        <span className="mt-1 shrink-0 text-ink-subtle transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:translate-x-1">
+        <span className="mt-1 shrink-0 text-quiet-ink transition-transform duration-[var(--motion-base)] group-hover:translate-x-1">
           {external ? <ArrowUpRight size={18} /> : <ArrowRight size={18} />}
         </span>
       </div>
-      <div className="mt-3 text-sm leading-relaxed text-ink-muted">{body}</div>
+      <div className="mt-4 text-sm text-quiet-ink">{body}</div>
       {children}
     </>
   );
 
-  const shell = `group block h-full rounded-[var(--radius-card)] border border-line bg-surface-raised p-6 transition-colors duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-line-strong`;
-
   if (!href) {
-    return <div className={`${shell} ${className}`}>{inner}</div>;
+    return (
+      <Card className={cn("h-full p-6", className)}>
+        <div className="h-full">{inner}</div>
+      </Card>
+    );
   }
 
   if (external) {
     return (
-      <a
-        href={href}
-        target="_blank"
-        rel="noreferrer noopener"
-        className={`${shell} ${className}`}
-      >
-        {inner}
-      </a>
+      <Card className={cn("group h-full p-6", className)}>
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+        >
+          {inner}
+        </a>
+      </Card>
     );
   }
 
   return (
-    <Link href={href} className={`${shell} ${className}`}>
-      {inner}
-    </Link>
+    <Card className={cn("group h-full p-6", className)}>
+      <Link
+        href={href}
+        className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+      >
+        {inner}
+      </Link>
+    </Card>
   );
 }
 
-type RowProps = {
+export function DataRow({
+  label,
+  value,
+  className,
+}: {
   label: string;
   value: ReactNode;
   className?: string;
-};
-
-export function DataRow({ label, value, className = "" }: RowProps) {
-  return (
-    <div
-      className={`grid gap-1 border-t border-line py-5 sm:grid-cols-12 sm:gap-6 ${className}`}
-    >
-      <p className="text-xs uppercase tracking-[0.14em] text-ink-subtle sm:col-span-4">
-        {label}
-      </p>
-      <div className="sm:col-span-8">{value}</div>
-    </div>
-  );
-}
-
-export function RevealGrid({
-  children,
-  className = "",
-}: {
-  children: ReactNode;
-  className?: string;
 }) {
   return (
-    <Reveal className={className}>{children}</Reveal>
+    <div
+      className={cn(
+        "grid gap-2 border-t border-line py-5 sm:grid-cols-12 sm:gap-6",
+        className,
+      )}
+    >
+      <p className="field sm:col-span-4">{label}</p>
+      <div className="sm:col-span-8">{value}</div>
+    </div>
   );
 }

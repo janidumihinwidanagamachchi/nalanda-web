@@ -1,154 +1,90 @@
 import Link from "next/link";
-import { NAV_SECONDARY, ROUTES } from "@/constants/site";
+import { NAV_FOOTER, NAV_INTERNAL } from "@/constants/site";
 import { SITE } from "@/data/site";
-import { Marquee } from "@/components/motion/marquee";
 
-const MARQUEE_ITEMS = [
-  ...SITE.houses.map((h) => h.name),
-  "Saukyadana Unit",
-  "Buddhist Association",
-  "Astronomical Society",
-  "Science Society",
-  "Commerce Society",
-  "Quiz Club",
-  "Art Society",
-  "Western Cadet Band",
-  "Boxing",
-  "Aquatics",
-];
-
+/**
+ * The site footer.
+ *
+ * Columns come from `NAV_FOOTER`, which is assembled in constants/site.ts out of
+ * the same lists the header uses. The footer previously kept its own third copy
+ * of the link list, which is how "Credits" and "Widgets" ended up footer
+ * entries while "Campus" was missing from the column next to them.
+ *
+ * The two routes that exist but are not part of the information flow — the
+ * widgets page and the credits ledger — are listed once at the bottom under
+ * their own heading, rather than being mixed in with places a visitor is
+ * looking for.
+ */
 export function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="mt-24 border-t border-line bg-surface-sunken">
-      <div className="border-b border-line py-6">
-        <Marquee speed={52}>
-          <div className="flex items-center gap-8 pr-8">
-            {MARQUEE_ITEMS.map((name) => (
-              <span
-                key={name}
-                className="whitespace-nowrap font-display text-2xl text-ink-subtle md:text-3xl"
-              >
-                {name}
-              </span>
-            ))}
+    <footer className="mt-24 border-t border-line bg-alt">
+      <div className="shell py-16">
+        <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <h2 className="font-serif text-lg">{SITE.name}</h2>
+            <p className="mt-1 text-sm text-quiet-ink">
+              {SITE.tagline}
+            </p>
+            <address className="mt-4 text-sm text-quiet-ink not-italic">
+              {SITE.address.street}
+              <br />
+              {SITE.address.locality}, {SITE.country}
+            </address>
+            <p className="mt-4 text-sm">
+              <a href={`tel:${SITE.contact.phone}`} className="wipe text-brand">
+                {SITE.contact.phoneDisplay}
+              </a>
+              <br />
+              <a href={`mailto:${SITE.contact.email}`} className="wipe text-brand">
+                {SITE.contact.email}
+              </a>
+            </p>
           </div>
-        </Marquee>
-      </div>
 
-      <div className="shell grid gap-12 py-16 md:grid-cols-12 md:gap-8">
-        <div className="md:col-span-4">
-          <p className="font-display text-2xl leading-tight">
-            {SITE.tagline}
-          </p>
-          <p className="mt-3 text-sm text-ink-muted">{SITE.motto.pali}</p>
-          <p className="mt-6 max-w-sm text-sm leading-relaxed text-ink-muted">
-            {SITE.address.street}, {SITE.address.locality},{" "}
-            {SITE.address.postal}, {SITE.address.country}
-          </p>
-          <p className="mt-2 text-sm text-ink-muted">
-            {SITE.contact.phoneDisplay}
-          </p>
+          {NAV_FOOTER.map((column) => (
+            <nav key={column.heading} aria-label={column.heading}>
+              <h2 className="field">{column.heading}</h2>
+              <ul className="mt-4 grid gap-2.5">
+                {column.items.map((item) => (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className="text-sm text-quiet-ink transition-colors duration-[var(--motion-fast)] hover:text-brand"
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          ))}
         </div>
 
-        <div className="md:col-span-3 md:col-start-6">
-          <FooterHeading>Explore</FooterHeading>
-          <ul className="mt-4 space-y-2.5">
-            <FooterLink href={ROUTES.academics}>Academics</FooterLink>
-            <FooterLink href={ROUTES.admissions}>Admissions</FooterLink>
-            <FooterLink href={ROUTES.announcements}>Announcements</FooterLink>
-            <FooterLink href={ROUTES.news}>News</FooterLink>
-            <FooterLink href={ROUTES.extraCurricular}>Extra Curricular</FooterLink>
-            <FooterLink href={ROUTES.history}>History</FooterLink>
-          </ul>
-        </div>
+        <div className="rule mt-16" />
 
-        <div className="md:col-span-3">
-          <FooterHeading>More</FooterHeading>
-          <ul className="mt-4 space-y-2.5">
-            {NAV_SECONDARY.map((item) => (
-              <FooterLink key={item.href} href={item.href}>
-                {item.label}
-              </FooterLink>
+        <div className="mt-8 flex flex-wrap items-baseline justify-between gap-x-8 gap-y-4">
+          <p className="text-sm text-quiet-ink">
+            &copy; {SITE.establishedYear}&ndash;{year} {SITE.name}. Established{" "}
+            {SITE.established}, affiliated with the {SITE.affiliation}.
+          </p>
+
+          <ul className="flex flex-wrap gap-x-5 gap-y-2">
+            {NAV_INTERNAL.map((item) => (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  title={item.note}
+                  className="font-mono text-xs uppercase tracking-[0.14em] text-quiet-ink transition-colors duration-[var(--motion-fast)] hover:text-brand"
+                >
+                  {item.label}
+                </Link>
+              </li>
             ))}
           </ul>
-        </div>
-
-        <div className="md:col-span-2">
-          <FooterHeading>Official</FooterHeading>
-          <ul className="mt-4 space-y-2.5">
-            <FooterLink href={SITE.social.facebook} external>
-              Facebook
-            </FooterLink>
-            <FooterLink href={SITE.social.youtube} external>
-              YouTube
-            </FooterLink>
-            <FooterLink href={SITE.social.instagram} external>
-              Instagram
-            </FooterLink>
-            <FooterLink href={SITE.social.linkedin} external>
-              LinkedIn
-            </FooterLink>
-          </ul>
-        </div>
-      </div>
-
-      <div className="border-t border-line">
-        <div className="shell flex flex-col gap-3 py-6 text-xs text-ink-subtle sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            {SITE.name}, {SITE.address.locality}. Established{" "}
-            {SITE.establishedYear}.
-          </p>
-          <p>
-            {year} · Affiliated with the {SITE.affiliation}
-          </p>
         </div>
       </div>
     </footer>
-  );
-}
-
-function FooterHeading({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-subtle">
-      {children}
-    </h2>
-  );
-}
-
-function FooterLink({
-  href,
-  children,
-  external = false,
-}: {
-  href: string;
-  children: React.ReactNode;
-  external?: boolean;
-}) {
-  const className =
-    "text-sm text-ink-muted transition-colors duration-200 hover:text-accent";
-
-  if (external) {
-    return (
-      <li>
-        <a
-          href={href}
-          target="_blank"
-          rel="noreferrer noopener"
-          className={className}
-        >
-          {children}
-        </a>
-      </li>
-    );
-  }
-
-  return (
-    <li>
-      <Link href={href} className={className}>
-        {children}
-      </Link>
-    </li>
   );
 }

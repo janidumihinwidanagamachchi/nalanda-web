@@ -1,3 +1,5 @@
+import type { MediaSlot } from "@/data/media";
+
 export type NewsCategory = "Achievements" | "School News";
 
 export interface Article {
@@ -8,7 +10,19 @@ export interface Article {
   category: NewsCategory;
   publishedAt: string;
   readMinutes: number;
+  /**
+   * The story thumbnail, resolved by `src/lib/content` at build time.
+   *
+   * Optional here because src/data holds no thumbnails of its own; the content
+   * layer always fills it, so anything rendering an article should use
+   * `ResolvedArticle`. Optional rather than required so the seeded data stays
+   * valid TypeScript.
+   */
+  thumb?: MediaSlot;
 }
+
+/** An article whose thumbnail is guaranteed to be present. */
+export type ResolvedArticle = Article & { thumb: MediaSlot };
 
 export const NEWS_CATEGORIES: NewsCategory[] = ["Achievements", "School News"];
 

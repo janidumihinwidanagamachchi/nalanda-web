@@ -1,11 +1,11 @@
 import type { MetadataRoute } from "next";
 import { ROUTES } from "@/constants/site";
 import { SITE } from "@/data/site";
-import { ARTICLES } from "@/data/news";
+import { getArticles } from "@/lib/content";
 
 export const dynamic = "force-static";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = SITE.website;
   const now = new Date();
 
@@ -39,15 +39,22 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: ROUTES.campus, priority: 0.5 },
     { path: ROUTES.newsletter, priority: 0.4 },
     { path: ROUTES.contact, priority: 0.7 },
+    { path: ROUTES.widgets, priority: 0.4 },
+    { path: ROUTES.credits, priority: 0.3 },
   ];
 
+  const articles = await getArticles();
+
+  // ROUTES.admin is deliberately absent from staticRoutes. The panel is
+  // noindex and should not be advertised in a sitemap; it is reachable by URL
+  // and gated by Supabase Auth.
   return [
     ...staticRoutes.map((route) => ({
       url: url(route.path),
       lastModified: now,
       ...priority(route.priority),
     })),
-    ...ARTICLES.map((article) => ({
+    ...articles.map((article) => ({
       url: url(`${ROUTES.news}/${article.slug}`),
       lastModified: new Date(article.publishedAt),
       ...priority(0.6),

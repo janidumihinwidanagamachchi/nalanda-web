@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // Pre-push gate for nalanda-web. Runs build, lint, route walk with content
-// markers, link check, and browser-console checks via agent-browser.
+// markers, and link check. Browser-console checks are intentionally disabled —
+// see stageBrowserConsole for why, and for what that leaves unverified.
 // Non-zero exit on failure.
 
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import http from "node:http";
 import path from "node:path";
 
@@ -33,13 +34,28 @@ const MARKERS = {
   "/campus": "Siri Dhamma Mawatha",
   "/newsletter": "The Nalanda bulletin",
   "/contact": "Reach the college",
+  "/widgets": "The short version",
+  "/credits": "Photographs and licences",
 };
 
 const NEWS_SLUG = "national-cadet-band-championship";
 const NEWS_SLUG_MARKER = "National Cadet Band Championship";
 
-const BROWSER_CHECK_ROUTES = ["/", "/history", "/extra-curricular/clubs"];
-const BROWSER_CMD_TIMEOUT_MS = 30_000;
+// Admin routes are walked separately from the public ones. They exist in the same
+// static export, but they are not part of the site: no public navigation links to
+// them, the sitemap omits them, and the only requirement on their markup is that
+// it identifies itself. Checking them here means a broken import in the panel fails
+// the deploy rather than shipping a 500-looking page nobody would notice.
+const ADMIN_ROUTES = {
+  "/admin": "Content administration",
+  "/admin/announcements": "Content administration",
+  "/admin/news": "Content administration",
+  "/admin/media": "Content administration",
+};
+
+// Every /admin page must be noindex. A login form in a search index is a small,
+// pointless invitation, and there is no server here to keep crawlers out later.
+const NOINDEX = /<meta name="robots" content="[^"]*noindex/;
 
 let serverHttp = null;
 let serverPort = null;
@@ -95,21 +111,6 @@ function run(cmd, opts = {}) {
     });
     child.on("close", finish);
   });
-}
-
-function existsOnPath(cmd) {
-  const suffix = process.platform === "win32" ? ".exe" : "";
-  const paths = (process.env.PATH ?? "").split(path.delimiter);
-  const checks = paths
-    .map((p) => path.join(p, cmd + suffix))
-    .concat(paths.map((p) => path.join(p, cmd + ".cmd")))
-    .concat(paths.map((p) => path.join(p, cmd + ".ps1")));
-  for (const c of checks) {
-    try {
-      if (statSync(c).isFile()) return true;
-    } catch {}
-  }
-  return false;
 }
 
 function getFreePort() {
@@ -196,7 +197,144 @@ async function stageLint() {
   return { ok: true, message: "eslint passed" };
 }
 
-async function stageRoutes() {
+/**
+ * The site is deliberately free of JS animation libraries. Motion, GSAP and
+ * Lenis are gone; hover and focus affordances are CSS transitions. This gate
+ * exists so the decision cannot quietly reverse: a dependency coming back, or
+ * an import of one of the old modules, fails the run before the build does.
+ */
+const BANNED_DEPS = ["motion", "gsap", "@gsap/react", "lenis", "framer-motion"];
+const BANNED_IMPORTS = [
+  /from\s+["']motion(\/react)?["']/,
+  /from\s+["']framer-motion(\/react)?["']/,
+  /from\s+["']gsap(\/[\w-]+)?["']/,
+  /from\s+["']@gsap\/react["']/,
+  /from\s+["']lenis["']/,
+  /@\/components\/motion\//,
+  /@\/lib\/scroll["']/,
+  /@\/lib\/pointer["']/,
+];
+
+function walk(dir, out = []) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      walk(full, out);
+    } else if (/\.(ts|tsx|mjs|js|css)$/.test(entry.name)) {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
+function stageNoMotion() {
+  const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+  const declared = Object.keys({
+    ...(pkg.dependencies ?? {}),
+    ...(pkg.devDependencies ?? {}),
+  });
+  const bannedDeps = BANNED_DEPS.filter((dep) => declared.includes(dep));
+
+  const offenders = [];
+  for (const file of walk("src")) {
+    const body = readFileSync(file, "utf8");
+    for (const pattern of BANNED_IMPORTS) {
+      if (pattern.test(body)) {
+        offenders.push(`${file}: matches ${pattern}`);
+      }
+    }
+  }
+
+  const failures = [
+    ...bannedDeps.map((dep) => `package.json still depends on "${dep}"`),
+    ...offenders,
+  ];
+  if (failures.length) {
+    return {
+      ok: false,
+      message: `${failures.length} animation dependency/import(s) present`,
+      detail: failures.join("\n"),
+    };
+  }
+  return {
+    ok: true,
+    message: `no animation libraries in package.json or src (${declared.length} deps scanned)`,
+  };
+}
+
+/**
+   * Hydration safety: no client component may read the clock during render.
+   *
+   * A "use client" component is rendered twice on a statically exported site:
+   * once by Node at build time, and again in the visitor's browser when React
+   * hydrates. A `new Date()` or `Date.now()` evaluated during either render
+   * gives the two different answers, React throws away the server HTML, and the
+   * visitor sees a hydration error. There is no browser automation in this gate
+   * to catch that, which is exactly why it is checked statically here.
+   *
+   * The safe pattern is to compute in an effect and render a stable placeholder
+   * first, which is what the countdown and weather widgets do.
+   *
+   * `ALLOWED_CLOCK_IN_RENDER` is the one sanctioned exception. Each entry names a
+   * component that is client-only under `output: "export"` and therefore has no
+   * prerendered markup to disagree with. Adding to this list is a claim that the
+   * component cannot become prerenderable without also removing the exemption,
+   * so it has to be justified rather than done to silence the check.
+   */
+  const ALLOWED_CLOCK_IN_RENDER = new Set([
+    // Announcements board: `useSearchParams` inside a Suspense boundary means
+    // out/announcements/index.html contains only the skeleton, so there is no
+    // server-rendered list for a clock read to contradict. See the component's
+    // own comment before changing this.
+    "src/components/announcements/board.tsx",
+  ]);
+
+  const CLOCK_IN_RENDER =
+    /use(?:Memo|State)\(\s*(?:\(\)\s*=>\s*)?(?:new Date|Date\.now)/g;
+
+  function stageHydrationSafety() {
+    const offenders = [];
+    let clientFiles = 0;
+
+    // Normalise to forward slashes so the allowlist is written the same way on
+    // every platform. walk() returns whatever path.join produced, which is
+    // backslashes on Windows.
+    const toPosix = (p) => p.replace(/\\/g, "/");
+    const allowed = new Set([...ALLOWED_CLOCK_IN_RENDER].map(toPosix));
+
+    for (const file of walk("src")) {
+      if (!/\.tsx?$/.test(file)) continue;
+      const body = readFileSync(file, "utf8");
+      if (!body.includes("use client")) continue;
+      clientFiles += 1;
+      if (allowed.has(toPosix(file))) continue;
+
+      for (const match of body.matchAll(CLOCK_IN_RENDER)) {
+        offenders.push(`${file}: ${match[0].replace(/\s+/g, " ")} in render`);
+      }
+    }
+
+    if (offenders.length) {
+      return {
+        ok: false,
+        message: `${offenders.length} client component(s) read the clock during render`,
+        detail: [
+          ...offenders,
+          "",
+          "Compute it in an effect and render a stable placeholder first, or, if",
+          "this component is client-only under static export, add it to",
+          "ALLOWED_CLOCK_IN_RENDER in scripts/verify.mjs with a justification.",
+        ].join("\n"),
+      };
+    }
+
+    return {
+      ok: true,
+      message: `no render-time clock reads in ${clientFiles} client components (${ALLOWED_CLOCK_IN_RENDER.size} documented exception)`,
+    };
+  }
+
+  async function stageRoutes() {
   if (!existsSync("out")) {
     return {
       ok: false,
@@ -245,6 +383,27 @@ async function stageRoutes() {
     }
   } catch (err) {
     failures.push(`/news/${NEWS_SLUG}/: ${err.message}`);
+  }
+
+  // Admin routes. Checked in the same walk because it is the same server, and a
+  // separate stage would mean paying to start it twice.
+  for (const route of Object.keys(ADMIN_ROUTES)) {
+    try {
+      const { status, body } = await fetchText(`${base}${route}/`);
+      if (status !== 200) {
+        failures.push(`${route}/: expected 200, got ${status}`);
+        continue;
+      }
+      const marker = ADMIN_ROUTES[route];
+      if (!body.includes(marker)) {
+        failures.push(`${route}/: missing marker "${marker}"`);
+      }
+      if (!NOINDEX.test(body)) {
+        failures.push(`${route}/: missing a noindex robots meta tag`);
+      }
+    } catch (err) {
+      failures.push(`${route}/: ${err.message}`);
+    }
   }
 
   // 404
@@ -304,7 +463,129 @@ async function stageRoutes() {
   }
   return {
     ok: true,
-    message: `${routes.length} routes + /news/[slug] + 404 + _next asset passed`,
+    message: `${routes.length} routes + ${Object.keys(ADMIN_ROUTES).length} admin + /news/[slug] + 404 + _next asset passed`,
+  };
+}
+
+/**
+ * Two invariants about how the admin panel is allowed to reach the database.
+ *
+ * 1. No client component may import the build-time content layer.
+ *    `@/lib/content` reads the database during `next build`, in Node. Pull it into
+ *    a "use client" module and its promises resolve in the visitor's browser, where
+ *    the anon key is subject to RLS: the panel would see drafts and unpublished
+ *    rows filtered out, or simply fail, and the component would ship an
+ *    await-in-render that React cannot satisfy. The panel must go through
+ *    `@/lib/supabase/*` and fetch in an effect instead.
+ *
+ * 2. No service-role key may appear anywhere in the source or the env example.
+ *    This is a static site. Every NEXT_PUBLIC_ value is in the shipped bundle, so a
+ *    service-role key here would not be a leak that needs noticing — it would be a
+ *    published one, bypassing every RLS policy the schema works to enforce.
+ */
+const CLIENT_CONTENT_IMPORT =
+  /import\s+(?:[\s\S]*?from\s+)?["']@\/lib\/content(?:\/[^"']*)?["']/;
+
+const SERVICE_ROLE = /SUPABASE_SERVICE_ROLE|SERVICE_ROLE_KEY/;
+
+function stageAdminBoundary() {
+  const failures = [];
+
+  for (const file of walk("src")) {
+    if (!/\.tsx?$/.test(file)) continue;
+    const body = readFileSync(file, "utf8");
+    const isClient = body.includes("use client");
+
+    if (isClient && CLIENT_CONTENT_IMPORT.test(body)) {
+      failures.push(
+        `${file}: client component imports @/lib/content, which only runs at build time`,
+      );
+    }
+    if (SERVICE_ROLE.test(body)) {
+      failures.push(
+        `${file}: references a service-role key, which cannot exist on a static site`,
+      );
+    }
+  }
+
+  // The env example ships in the repo and is what someone copies from, so a
+  // service-role key there would be the most likely way one gets introduced.
+  for (const file of [".env.example"]) {
+    if (!existsSync(file)) continue;
+    const body = readFileSync(file, "utf8");
+    if (/^[^#\n]*SUPABASE_SERVICE_ROLE[^=]*=/m.test(body)) {
+      failures.push(`${file}: declares a service-role key variable`);
+    }
+  }
+
+  // /admin must exist in the export, or these gates are checking nothing.
+  if (!existsSync("out/admin/index.html")) {
+    failures.push("out/admin/index.html missing; the panel did not build");
+  }
+
+  if (failures.length) {
+    return {
+      ok: false,
+      message: `${failures.length} admin boundary violation(s)`,
+      detail: failures.join("\n"),
+    };
+  }
+
+  return {
+    ok: true,
+    message: "no client imports of the build-time content layer, no service-role keys",
+  };
+}
+
+/**
+ * Files under /public are served from the deployment subpath, so any src/href
+ * in the exported HTML rooted at the domain instead of at BASE_PATH will 404 on
+ * the deployed Pages site. next/image does not prepend basePath when
+ * images.unoptimized is set, which is how the navbar crest and the gallery
+ * photographs shipped broken for a long while without any gate noticing: the
+ * route-walk asset check only looks at /_next/static.
+ */
+async function stagePublicAssets() {
+  if (!serverHttp) {
+    return { ok: false, message: "public asset check ran without a server" };
+  }
+  const base = `http://127.0.0.1:${serverPort}${BASE_PATH}`;
+  const offenders = [];
+  let checked = 0;
+
+  for (const route of [...Object.keys(MARKERS), `/news/${NEWS_SLUG}`]) {
+    let body;
+    try {
+      const res = await fetchText(`${base}${route}/`);
+      if (res.status !== 200) continue;
+      body = res.body;
+    } catch {
+      continue;
+    }
+
+    const refs = new Set(
+      [...body.matchAll(/(?:src|href)="(\/[^"]*)"/g)].map((m) => m[1]),
+    );
+
+    for (const ref of refs) {
+      if (ref.startsWith(`${BASE_PATH}/`)) continue;
+      // Framework chunks are asserted by the route-walk stage.
+      if (ref.startsWith("/_next/")) continue;
+      checked += 1;
+      offenders.push(`${route}/: ${ref}`);
+    }
+  }
+
+  if (offenders.length) {
+    return {
+      ok: false,
+      message: `${offenders.length} root-relative reference(s) missing the ${BASE_PATH} prefix`,
+      detail: [...new Set(offenders)].slice(0, 20).join("\n"),
+    };
+  }
+  return {
+    ok: true,
+    message: `${checked} public asset reference(s) all carry the ${BASE_PATH} prefix`,
   };
 }
 
@@ -323,15 +604,34 @@ async function stageLinks() {
 }
 
 async function stageBrowserConsole() {
-  // Skipped: agent-browser opens reliably from an interactive shell but times
-  // out when driven as a child process in this environment. The other stages
-  // still catch build, lint, routing, and link regressions. Re-enable once the
-  // integration is stable.
+  // Disabled by decision, not by breakage.
+  //
+  // The original reason recorded here was that "agent-browser child-process
+  // integration is unstable". That diagnosis was wrong and has been corrected.
+  // `agent-browser doctor` reports a healthy install (Chrome 154, no failed
+  // checks). What actually failed was this project's usage of it: per-session
+  // state is keyed by a worktree hash that is identical for every session run
+  // against this repo, so sessions collided, and `errors --clear` did not
+  // reliably empty the buffer, which made error counts unattributable to any
+  // route. Rather than add a browser dependency to fix a QA gap, browser QA was
+  // dropped.
+  //
+  // Consequence, stated plainly: nothing here renders the site. Dark mode,
+  // reduced motion, the mobile sheet, and filter-tab interaction are unverified
+  // by machine and need a human with a real browser before launch.
+  //
+  // Hydration safety is instead enforced statically. Date rendering goes
+  // through `formatDate` in src/lib/utils.ts (pinned to UTC), and no client
+  // component reads the clock during render — `AnnouncementsBoard` takes the
+  // instant from a prop. Re-enabling this stage means adding a real browser
+  // Re-enabling this stage means adding a real browser driver (e.g. Playwright)
+  // and walking the full route list under BASE_PATH on serverPort, asserting an
+  // empty console on each.
   return {
     ok: true,
     warn: true,
     message:
-      "Browser console checks are disabled (agent-browser child-process integration unstable).",
+      "Browser console checks are intentionally disabled (browser QA dropped; hydration safety enforced statically). Nothing in this gate renders the site — dark mode, reduced motion, the mobile sheet, and filter-tab interaction still need a human on a real browser.",
   };
 }
 
@@ -344,7 +644,11 @@ async function main() {
     { name: "Environment", run: stageEnv },
     { name: "Build", run: stageBuild },
     { name: "Lint", run: stageLint },
+    { name: "No animation deps", run: stageNoMotion },
+    { name: "Hydration safety", run: stageHydrationSafety },
+    { name: "Admin boundary", run: stageAdminBoundary },
     { name: "Route walk", run: stageRoutes },
+    { name: "Public assets", run: stagePublicAssets },
     { name: "Link check", run: stageLinks },
     { name: "Browser console", run: stageBrowserConsole },
   ];

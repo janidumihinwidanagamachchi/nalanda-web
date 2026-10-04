@@ -106,5 +106,14 @@ export const ANNOUNCEMENTS: Announcement[] = [
   },
 ];
 
-export const isExpired = (a: Announcement, today = new Date()) =>
+/**
+ * Whether a notice has lapsed.
+ *
+ * `today` is deliberately required rather than defaulting to `new Date()`. A
+ * default hides the clock read from the call site, which is how a component
+ * ends up with a date it cannot account for. Callers pass an explicit instant
+ * and are responsible for knowing whether that instant is the build time or the
+ * request time — which depends on whether the caller's markup is prerendered.
+ */
+export const isExpired = (a: Announcement, today: Date) =>
   Boolean(a.expiresAt && new Date(a.expiresAt) < today);

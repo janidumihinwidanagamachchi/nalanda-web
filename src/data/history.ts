@@ -19,14 +19,14 @@ export const TIMELINE: TimelineEntry[] = [
     year: "1922",
     title: "Foundation stone laid",
     body:
-      "In the same year the Governor of Ceylon lays the foundation stone for the new school.",
+      "In the same year Sir Gregory Thompson, Governor of Ceylon, lays the foundation stone for the new school.",
     era: "origins",
   },
   {
     year: "1924",
-    title: "Land is bought and classrooms raised",
+    title: "Land is bought and rooms raised",
     body:
-      "Kularatne spends Rs 5,500 to purchase 0.10 hectares near the Campbell Place playground and builds sixteen classrooms. Two are allocated to the principal's office and staff, three to laboratories, and the remaining twelve to classrooms.",
+      "After leasing an acre beside the Campbell Place playground, where junior classes first sat in mud huts, Kularatne buys four adjoining acres for Rs 55,000 and raises a block of sixteen rooms. Two become laboratories and two more the staff room and the principal's office, leaving twelve as classrooms.",
     era: "origins",
   },
   {
@@ -62,6 +62,13 @@ export const TIMELINE: TimelineEntry[] = [
     title: "Second building",
     body:
       "The foundation stone for a second building is laid on 30 March 1926. By the end of the year enrolment has risen to 550. The assembly hall is later named the Malalasekara Theatre in honour of the first principal.",
+    era: "growth",
+  },
+  {
+    year: "1927",
+    title: "Gandhi addresses the students",
+    body:
+      "Mahatma Gandhi speaks at Nalanda Vidyalaya on 15 November, during his 1927 tour of Ceylon. He tells the students that unless they carried the teaching of the Buddha into their own lives, their having belonged to the institution would be of no use.",
     era: "growth",
   },
   {

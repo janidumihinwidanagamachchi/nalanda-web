@@ -54,7 +54,7 @@ behind the base path, so it is at <http://localhost:3000/nalanda-web/>.
 
 The route walk uses **content markers**, not just status codes, because the original `/history` bug passed TypeScript, the build, and every HTTP 200 check while still serving the error boundary at runtime. Content markers catch that class of failure.
 
-The blind spot is **client-side runtime errors that do not change the static HTML**. The verify script has a browser console stage meant to close this, but it is currently disabled: `agent-browser` works from an interactive shell but times out when driven as a child process in this environment. Until that is fixed, manually open `/history` and `/extra-curricular/clubs` in a clean browser after any change that touches `src/lib/scroll.ts`, `src/components/motion/sticky-stack.tsx`, GSAP, Lenis, or React rendering.
+The blind spot is **client-side runtime errors that do not change the static HTML**. The verify script has a browser console stage meant to close this, but it is currently disabled: `agent-browser` works from an interactive shell but times out when driven as a child process in this environment, and browser QA was dropped from scope rather than left half-built. Until that changes, manually open a few routes in a clean browser after any change that touches a `"use client"` component, the announcements board's Suspense boundary, or `/admin` — the panel is the one part of the site that cannot be checked by reading `out/`.
 
 ## Daily loop
 
@@ -67,16 +67,39 @@ npm run verify
 
 ## Content updates
 
-All content lives in `src/data/`:
+Two systems, and knowing which one owns a fact is most of the job.
+
+**`src/data/`** — in version control, reviewed like code. This owns anything that
+is not expected to change between one secretary's tenure and the next:
 
 - `site.ts` — site metadata, social URLs, contact, domain
-- `history.ts`, `pastPrincipals.ts`, `academics.ts`, `admissions.ts`, `announcements.ts`, `news.ts`, `community.ts`, `channels.ts`, `extraCurricular.ts`, `media.ts`
+- `history.ts`, `pastPrincipals.ts`, `academics.ts`, `admissions.ts`, `community.ts`, `channels.ts`, `extraCurricular.ts`
 
-Edit only those files for text changes. Do not invent facts. If a piece of information is missing from the sources, label the gap on the page rather than filling it in. See `README.md` for the current list of deliberate gaps.
+Edit only those files for text changes. Do not invent facts. If a piece of
+information is missing from the sources, label the gap on the page rather than
+filling it in. See `README.md` for the current list of deliberate gaps.
+
+**Supabase, via `/admin`** — edited by the college, not by you. Announcements,
+news and photographs:
+
+- `announcements.ts`, `news.ts`, `media.ts` are the **seed** and the fallback,
+  not the source of truth once the database is attached. `npm run seed` regenerates
+  `supabase/seed.sql` from them; re-run it after editing them. Re-applying that SQL
+  is safe against a live project — each upsert is guarded by
+  `where updated_at = created_at`, so a row an editor has touched is skipped.
+- `CONTENT_SOURCE=static` (the default) builds from `src/data`.
+  `CONTENT_SOURCE=supabase` builds from the database.
+- Setup, the rebuild webhook and the security model: `docs/admin-panel.md`.
+
+You should rarely need to touch the database by hand. If you do, use
+`supabase/migrations/`, not the dashboard — the policies are the security model
+and they live in version control for that reason.
 
 ## Images
 
-There are 13 placeholder images seeded from `picsum.photos` in `src/data/media.ts`. Replace them with real Nalanda College photography as assets become available. `next.config.ts` already whitelists `picsum.photos`, `fastly.picsum.photos`, and `i.ytimg.com`. Add new remote hostnames to `next.config.ts` when you add external images.
+There are 11 placeholder images seeded from `picsum.photos` in `src/data/media.ts`. Replacing them with real college photography is now a `/admin` job: upload the file, and supply the photographer, licence, licence URL and original page. The database refuses a row that is not marked as a placeholder and lacks that provenance.
+
+`next.config.ts` whitelists `picsum.photos`, `fastly.picsum.photos`, `i.ytimg.com` and `**.supabase.co` — the last for photographs uploaded through the panel. Add new remote hostnames there when you add external images.
 
 ## Embed credentials
 

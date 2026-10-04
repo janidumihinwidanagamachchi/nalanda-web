@@ -8,7 +8,7 @@ export function GridSkeleton({ count = 6 }: { count?: number }) {
     >
       {Array.from({ length: count }).map((_, index) => (
         <div key={index} className="space-y-4">
-          <div className="aspect-[3/2] animate-pulse rounded-[var(--radius-card)] bg-line" />
+          <div className="aspect-[3/2] animate-pulse rounded-xl bg-line" />
           <div className="flex gap-3">
             <div className="h-4 w-20 animate-pulse rounded-[2px] bg-line" />
             <div className="h-4 w-16 animate-pulse rounded-[2px] bg-line" />
