@@ -10,65 +10,114 @@ import { Badge } from "@/components/ui/badge";
 /**
  * The masthead.
  *
- * The image sits behind the type on wide screens and below it on narrow ones,
- * rather than in a two-column split, so the photograph reads as a single plate
- * and stays legible under the scrim at any width.
+ * The layout the preview uses: type on the left, a photograph panel on the right,
+ * rather than a photograph behind the type. The difference matters for
+ * legibility. A full-bleed photograph under a headline needs a scrim strong
+ * enough to hide the image, and once the scrim is strong enough the photograph
+ * has been darkened for the reader's benefit only. Side by side, the type sits on
+ * the flat `--deep` field at full contrast and the photograph is simply a
+ * photograph.
  *
- * The plate is currently the Malalasekara auditorium rather than the main
- * building, which the school has not yet supplied. The credit beneath the type
- * names the photographer, and the caption is not allowed to imply the building
- * is the one the school would most want shown.
+ * The plate panel carries the credit line rather than the copy, for the same
+ * reason it does elsewhere on the site: an attribution a reader has to go looking
+ * for is not an attribution.
  */
 export async function Hero() {
   const { hero } = await getMedia();
 
   return (
-    <section className="relative overflow-hidden border-b border-line">
-      <div className="absolute inset-0">
-        <Image
-          src={hero.src}
-          alt={hero.alt}
-          width={hero.width}
-          height={hero.height}
-          priority
-          sizes="100vw"
-          className="size-full object-cover"
-        />
-        {/* The scrim is the only thing standing between the photograph and the
-            type, so it ramps hard at the bottom where the text sits. */}
-        <div className="absolute inset-0 bg-gradient-to-t from-canvas via-canvas/85 to-canvas/40" />
-      </div>
-
-      <div className="shell relative py-24 md:py-32 lg:py-40">
-        <Badge variant="secondary">
-          {SITE.category} &middot; {SITE.affiliation}
+    <section className="grid border-b border-line lg:grid-cols-[minmax(0,44%)_minmax(0,56%)]">
+      <div className="flex flex-col justify-center bg-deep px-[var(--page-gutter)] py-14 text-deep-ink md:py-20">
+        <Badge variant="secondary" className="self-start bg-deep-ink/15 text-deep-ink">
+          {SITE.category} &middot; EST. {SITE.establishedYear}
         </Badge>
 
-        <h1 className="display-tight mt-6 max-w-4xl text-5xl md:text-6xl lg:text-7xl">
-          Wisdom Illuminates Character
+        {/*
+          The school name and the city are set as two lines of one heading
+          rather than a heading plus a subtitle, so the hero reads as a single
+          statement at every width and the city cannot be skipped by a screen
+          reader as decoration.
+        */}
+        <h1 className="display-tight mt-7 text-4xl md:text-5xl">
+          <span className="block">{SITE.name}</span>
+          <span className="mt-1 block italic opacity-80">
+            {SITE.place}.
+          </span>
         </h1>
 
-        <p className="measure mt-6 text-lg text-quiet-ink">
-          {SITE.name}, {SITE.place} &mdash; founded {SITE.established}, teaching{" "}
-          {SITE.gradeRange} to {SITE.enrolment.total.toLocaleString()} boys on{" "}
-          {SITE.address.street}.
+        <p className="mt-7 max-w-[var(--reading-width)] text-lg opacity-85">
+          {SITE.motto.english}. Founded {SITE.established}, teaching{" "}
+          {SITE.gradeRange} to {SITE.enrolment.total.toLocaleString("en-LK")} boys
+          on {SITE.address.street}.
         </p>
 
-        <div className="mt-10 flex flex-wrap gap-3">
-          <Button asChild size="lg">
-            <Link href={ROUTES.admissions}>
-              Admissions
+        <div className="mt-9 flex flex-wrap gap-3">
+          <Button
+            asChild
+            size="lg"
+            className="bg-deep-ink text-deep hover:bg-deep-ink/90"
+          >
+            <Link href={ROUTES.history}>
+              Discover our heritage
               <ArrowRight size={18} />
             </Link>
           </Button>
-          <Button asChild size="lg" variant="outline">
-            <Link href={ROUTES.announcements}>Announcements</Link>
+          <Button
+            asChild
+            size="lg"
+            variant="outline"
+            className="border-deep-ink/40 bg-deep-ink text-deep hover:bg-deep-ink/90 hover:text-deep"
+          >
+            <Link href={ROUTES.admissions}>Admissions</Link>
           </Button>
         </div>
 
-        <p className="mt-12 font-mono text-xs text-quiet-ink">
-          {hero.credit}
-        </p>
+        <dl className="mt-12 flex flex-wrap gap-x-10 gap-y-4 border-t border-deep-ink/20 pt-6">
+          <div>
+            <dt className="field opacity-70">Founded</dt>
+            <dd className="mt-1 font-serif text-lg tabular-nums">
+              {SITE.establishedYear}
+            </dd>
+          </div>
+          <div>
+            <dt className="field opacity-70">Colours</dt>
+            <dd className="mt-1 font-serif text-lg">
+              {SITE.colours.join(" & ")}
+            </dd>
+          </div>
+          <div>
+            <dt className="field opacity-70">Affiliation</dt>
+            <dd className="mt-1 font-serif text-lg">{SITE.affiliation}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div className="relative flex items-center justify-center overflow-hidden bg-panel p-[var(--page-gutter)]">
+        <div className="relative w-full max-w-2xl">
+          <div className="overflow-hidden rounded-xl border">
+            <Image
+              src={hero.src}
+              alt={hero.alt}
+              width={hero.width}
+              height={hero.height}
+              priority
+              sizes="(max-width: 1024px) 100vw, 56vw"
+              className="aspect-[16/10] w-full object-cover"
+            />
+          </div>
+
+          {/*
+            Plate numbering, matching the convention the gallery and the credits
+            ledger already use, so a photograph cited in prose ("Plate I") can be
+            found here. `hero.plate` is set in data/media.ts.
+          */}
+          <p className="mt-4 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-quiet-ink">
+            Plate {hero.plate} &middot; {hero.alt}
+          </p>
+          <p className="mt-1.5 text-xs leading-relaxed text-quiet-ink">
+            {hero.credit}
+          </p>
+        </div>
       </div>
     </section>
   );
