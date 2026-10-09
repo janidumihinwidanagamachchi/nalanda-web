@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { NAV_FOOTER, NAV_INTERNAL } from "@/constants/site";
+import { NAV_FOOTER, NAV_INTERNAL, ROUTES } from "@/constants/site";
 import { SITE } from "@/data/site";
 
 /**
@@ -20,13 +20,41 @@ export function Footer() {
 
   return (
     <footer className="mt-24 border-t border-line bg-alt">
+      {/*
+        The motto band, in the darker maroon, running full width above the
+        columns. It closes the page on the one line that identifies the college,
+        with the founding year set as a plate beside it — the same pairing the
+        preview uses, where the year is treated as a date of record rather than
+        as body copy.
+      */}
+      <div className="bg-deep text-deep-ink">
+        <div className="shell flex flex-wrap items-center justify-between gap-8 py-12">
+          <div>
+            <p className="font-mono text-[0.6875rem] uppercase tracking-[0.14em] opacity-75">
+              {SITE.name} &middot; {SITE.address.locality}
+            </p>
+            <p className="mt-3 font-serif text-2xl italic">{SITE.motto.english}</p>
+          </div>
+          <Link
+            href={ROUTES.history}
+            className="group flex items-baseline gap-4 text-center"
+          >
+            <span className="field opacity-75">Established</span>
+            <span className="display-tight text-5xl tabular-nums">
+              {SITE.establishedYear}
+            </span>
+            <span className="field opacity-0 transition-opacity duration-[var(--motion-base)] group-hover:opacity-75 group-focus-visible:opacity-75">
+              History
+            </span>
+          </Link>
+        </div>
+      </div>
+
       <div className="shell py-16">
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
           <div>
             <h2 className="font-serif text-lg">{SITE.name}</h2>
-            <p className="mt-1 text-sm text-quiet-ink">
-              {SITE.tagline}
-            </p>
+            <p className="mt-1 text-sm text-quiet-ink">{SITE.tagline}</p>
             <address className="mt-4 text-sm text-quiet-ink not-italic">
               {SITE.address.street}
               <br />

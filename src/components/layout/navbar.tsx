@@ -124,128 +124,71 @@ export function Navbar() {
     href === ROUTES.home ? pathname === href : pathname.startsWith(href);
 
   return (
-    <header
-      ref={headerRef}
-      className="sticky top-0 z-[var(--z-nav)] border-b border-line bg-panel/85 backdrop-blur-md"
-    >
-      <div className="shell flex h-16 items-center justify-between gap-6">
-        <Link
-          href={ROUTES.home}
-          className="flex items-center gap-3"
-          aria-label={`${SITE.name}, home`}
-        >
-          <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-lg border bg-panel">
-            <Image
-              src={`${ASSET_BASE}/brand/crest.png`}
-              alt=""
-              width={36}
-              height={36}
-              priority
-              className="size-full object-cover"
-            />
-          </span>
-          <span className="font-serif text-lg leading-tight">
-            {/*
-              The name sits on one line at every width so the header never
-              reflows on a narrow phone.
-            */}
-            <span className="block whitespace-nowrap">{SITE.name}</span>
-            <span className="field mt-0.5 block">{SITE.place}</span>
-          </span>
-        </Link>
-
-        {/*
-          The toggle is its own flex child rather than inside either nav, so it
-          stays reachable at every width — including the narrow phone layout
-          where the desktop nav is hidden and the sheet is closed.
-        */}
-        <div className="flex items-center gap-2">
+    <header ref={headerRef} className="sticky top-0 z-[var(--z-nav)]">
+      {/*
+        The utility strip. Deep maroon, above the masthead, carrying the
+        locality and the founding year on the left and the theme toggle on the
+        right. It is inside the sticky header deliberately: it is the one piece
+        of the chrome that a reader setting the scheme wants reachable without
+        scrolling back to the top.
+      */}
+      <div className="utility-strip">
+        <div className="shell flex min-h-9 items-center justify-between gap-6">
+          <p className="truncate">
+            {SITE.address.locality}
+            <span aria-hidden className="px-2 opacity-50">
+              /
+            </span>
+            EST. {SITE.establishedYear}
+          </p>
           <ThemeToggle />
+        </div>
+      </div>
 
-          <div
-            ref={navRef}
-            className="relative hidden items-center gap-6 lg:flex"
-            onMouseLeave={() => setOpenMenu(null)}
+      <div className="border-b border-line bg-panel">
+        <div className="shell flex min-h-16 items-center justify-between gap-6 py-3">
+          <Link
+            href={ROUTES.home}
+            className="flex items-center gap-3"
+            aria-label={`${SITE.name}, home`}
           >
-            <nav className="flex items-center gap-6" aria-label="Main">
-              {NAV_PRIMARY.map((item) =>
-                item.children ? (
-                  <div key={item.label} className="relative">
-                    <button
-                      type="button"
-                      ref={(node) => {
-                        if (node) triggerRefs.current.set(item.label, node);
-                        else triggerRefs.current.delete(item.label);
-                      }}
-                      aria-expanded={openMenu === item.label}
-                      aria-controls={
-                        openMenu === item.label
-                          ? panelId(item.label)
-                          : undefined
-                      }
-                      onClick={() =>
-                        setOpenMenu((v) => (v === item.label ? null : item.label))
-                      }
-                      className={`flex items-center gap-1 text-sm transition-colors duration-[var(--motion-fast)] ${
-                        isActive(item)
-                          ? "text-brand"
-                          : "text-ink hover:text-brand"
-                      }`}
-                    >
-                      {item.label}
-                      <span aria-hidden className="text-[0.6rem] leading-none">
-                        &#9662;
-                      </span>
-                    </button>
+            <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-lg border bg-panel">
+              <Image
+                src={`${ASSET_BASE}/brand/crest.png`}
+                alt=""
+                width={36}
+                height={36}
+                priority
+                className="size-full object-cover"
+              />
+            </span>
+            <span className="font-serif text-lg leading-tight">
+              {/*
+                The name sits on one line at every width so the header never
+                reflows on a narrow phone.
+              */}
+              <span className="block whitespace-nowrap">{SITE.name}</span>
+              <span className="field mt-0.5 block">{SITE.place}</span>
+            </span>
+          </Link>
 
-                    {openMenu === item.label ? (
-                      <div
-                        id={panelId(item.label)}
-                        className="absolute left-0 top-full w-60 rounded-xl border bg-floating p-1.5 pt-3 shadow-[0_12px_40px_color-mix(in_srgb,var(--ink)_14%,transparent)]"
-                      >
-                        {item.children.map((child) => (
-                          <Link
-                            key={child.href}
-                            href={child.href}
-                            aria-current={
-                              isCurrent(child.href) ? "page" : undefined
-                            }
-                            onClick={() => setOpenMenu(null)}
-                            className={`block rounded-lg px-3 py-2 text-sm transition-colors duration-[var(--motion-fast)] ${
-                              isCurrent(child.href)
-                                ? "bg-alt text-ink"
-                                : "text-quiet-ink hover:bg-alt hover:text-ink"
-                            }`}
-                          >
-                            {child.label}
-                          </Link>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                ) : (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    aria-current={isCurrent(item.href) ? "page" : undefined}
-                    className={`wipe text-sm transition-colors duration-[var(--motion-fast)] ${
-                      isCurrent(item.href)
-                        ? "text-brand"
-                        : "text-ink hover:text-brand"
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                ),
-              )}
-            </nav>
+          {/*
+            The toggle is its own flex child rather than inside either nav, so it
+            stays reachable at every width — including the narrow phone layout
+            where the desktop nav is hidden and the sheet is closed.
+          */}
+          {/*
+            The motto sits in the masthead, where the preview places it. It is
+            the one line that identifies the college on sight, and it fills the
+            space the navigation used to occupy — the navigation now lives in the
+            maroon band below, so there is exactly one nav at every width.
+          */}
+          <p className="hidden font-serif text-sm italic text-brand lg:block">
+            {SITE.motto.english}
+          </p>
 
-            <Button asChild size="sm">
-              <Link href={ROUTES.admissions}>Admissions</Link>
-            </Button>
-          </div>
-
-          <Sheet>
+          <div className="flex items-center gap-2">
+            <Sheet>
             <SheetTrigger asChild>
               <Button variant="outline" size="sm" className="lg:hidden">
                 Menu
@@ -316,7 +259,96 @@ export function Navbar() {
               </SheetClose>
             </SheetContent>
           </Sheet>
+          </div>
         </div>
+      </div>
+
+      {/*
+        The maroon navigation band, below the masthead. This is the only desktop
+        nav; the sheet above is the small-screen one. Both render the same
+        `NAV_PRIMARY`, so a route cannot appear in one and be missing from the
+        other.
+
+        `navRef` is attached to the band rather than the header, so the
+        outside-click and Escape handlers that close a dropdown are scoped to the
+        element that actually contains the dropdown panels. Items with children
+        keep the dropdown: the band is thin, so the panel hangs below it on the
+        page's own background, which is why it is painted with `bg-floating`
+        instead of a maroon-derived fill that would not be legible.
+      */}
+      <div
+        ref={navRef}
+        className="nav-band hidden lg:block"
+        onMouseLeave={() => setOpenMenu(null)}
+      >
+        <nav className="shell flex items-center gap-6 py-2.5" aria-label="Main">
+          {NAV_PRIMARY.map((item) =>
+            item.children ? (
+              <div key={item.label} className="relative">
+                <button
+                  type="button"
+                  ref={(node) => {
+                    if (node) triggerRefs.current.set(item.label, node);
+                    else triggerRefs.current.delete(item.label);
+                  }}
+                  aria-expanded={openMenu === item.label}
+                  aria-controls={
+                    openMenu === item.label ? panelId(item.label) : undefined
+                  }
+                  onClick={() =>
+                    setOpenMenu((v) => (v === item.label ? null : item.label))
+                  }
+                  className={`flex items-center gap-1 py-1 font-mono text-xs uppercase tracking-[0.14em] transition-colors duration-[var(--motion-fast)] ${
+                    isActive(item)
+                      ? "text-brand-ink"
+                      : "text-brand-ink/75 hover:text-brand-ink"
+                  }`}
+                >
+                  {item.label}
+                  <span aria-hidden className="text-[0.55rem] leading-none">
+                    &#9662;
+                  </span>
+                </button>
+
+                {openMenu === item.label ? (
+                  <div
+                    id={panelId(item.label)}
+                    className="absolute left-0 top-full mt-1 w-60 rounded-xl border bg-floating p-1.5 pt-3 shadow-[0_12px_40px_color-mix(in_srgb,var(--ink)_14%,transparent)]"
+                  >
+                    {item.children.map((child) => (
+                      <Link
+                        key={child.href}
+                        href={child.href}
+                        aria-current={isCurrent(child.href) ? "page" : undefined}
+                        onClick={() => setOpenMenu(null)}
+                        className={`block rounded-lg px-3 py-2 text-sm transition-colors duration-[var(--motion-fast)] ${
+                          isCurrent(child.href)
+                            ? "bg-alt text-ink"
+                            : "text-quiet-ink hover:bg-alt hover:text-ink"
+                        }`}
+                      >
+                        {child.label}
+                      </Link>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={isCurrent(item.href) ? "page" : undefined}
+                className={`py-1 font-mono text-xs uppercase tracking-[0.14em] transition-colors duration-[var(--motion-fast)] ${
+                  isCurrent(item.href)
+                    ? "text-brand-ink"
+                    : "text-brand-ink/75 hover:text-brand-ink"
+                }`}
+              >
+                {item.label}
+              </Link>
+            ),
+          )}
+        </nav>
       </div>
     </header>
   );

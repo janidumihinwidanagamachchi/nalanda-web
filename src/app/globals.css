@@ -108,12 +108,19 @@
   --color-floating-ink: var(--floating-ink);
   --color-brand: var(--brand);
   --color-brand-ink: var(--brand-ink);
+  --color-deep: var(--deep);
+  --color-deep-ink: var(--deep-ink);
   --color-alt: var(--alt);
   --color-alt-ink: var(--alt-ink);
   --color-quiet: var(--quiet);
   --color-quiet-ink: var(--quiet-ink);
   --color-highlight: var(--highlight);
   --color-highlight-ink: var(--highlight-ink);
+  --color-gold: var(--gold);
+  --color-gold-ink: var(--gold-ink);
+  --color-silver: var(--silver);
+  --color-silver-mid: var(--silver-mid);
+  --color-silver-dark: var(--silver-dark);
   --color-danger: var(--danger);
   --color-danger-ink: var(--danger-ink);
   --color-line: var(--line);
@@ -144,6 +151,13 @@
   --motion-slow: 520ms;
 
   --shell-max: 80rem;
+
+  /* The gutter is fluid between a phone's minimum and a wide screen's maximum
+     rather than stepping at the Tailwind breakpoints, so the measure does not
+     jump at 640px. `--reading-width` caps prose below the shell width, which is
+     what `.measure` already does; it is named here so sections can cite it. */
+  --page-gutter: clamp(22px, 4.4vw, 76px);
+  --reading-width: 66ch;
 
   --z-base: 0;
   --z-raised: 10;
@@ -183,8 +197,14 @@
 
   /* The college maroon. Deep enough to carry white text at 4.5:1+ and still
      read as maroon rather than pink in light mode. */
-  --brand: light-dark(#8c1f3d, #e8b4c2);
-  --brand-ink: light-dark(#ffffff, #26101a);
+  --brand: light-dark(#7a0000, #e8b4c2);
+  --brand-ink: light-dark(#ffffff, #26100a);
+
+  /* Deep is the darker maroon the ceremonial bands are painted in, so a band
+     and the header above it read as two values of one colour rather than as an
+     unrelated dark fill. */
+  --deep: light-dark(#5b0000, #8c1f3d);
+  --deep-ink: light-dark(#ffffff, #f4efec);
 
   --alt: light-dark(#f1ede9, #221c1e);
   --alt-ink: light-dark(#26201e, #f4efec);
@@ -197,12 +217,22 @@
   --highlight: light-dark(#dcd8d4, #4a4347);
   --highlight-ink: light-dark(#1c1918, #f4efec);
 
+  /* The three silvers, as fills for the horizontal bands that separate the
+     major sections. Each band needs its own edge value or two adjacent bands
+     merge into one grey field. Gold is the accent used sparingly: a rule, a
+     date, never a paragraph. */
+  --silver: light-dark(#e8e8e8, #2f2729);
+  --silver-mid: light-dark(#d4d4d4, #373033);
+  --silver-dark: light-dark(#929292, #555052);
+  --gold: light-dark(#8a6d16, #e5c76b);
+  --gold-ink: light-dark(#ffffff, #2b2003);
+
   --danger: light-dark(#a81f16, #f2b8b5);
   --danger-ink: light-dark(#ffffff, #26100e);
 
   --line: light-dark(#e2dcd6, #2f2729);
   --field: light-dark(#d5cdc6, #3b3336);
-  --focus: light-dark(#8c1f3d, #e8b4c2);
+  --focus: light-dark(#7a0000, #e8b4c2);
 
   --radius: 0.75rem;
 
@@ -405,6 +435,69 @@
     padding-inline: 1.25rem;
   }
 
+  /* The utility strip above the masthead. Carries the locality, the founding
+     year and the theme toggle on a deep maroon field, which is why it sets its
+     own foreground rather than inheriting `--ink` from the page. */
+  .utility-strip {
+    background-color: var(--deep);
+    color: var(--deep-ink);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* The maroon navigation band, with the silver rule the college colours are
+     conventionally paired with. The rule sits on the band's own bottom edge so
+     it travels with the band rather than becoming a separate divider.
+
+     The band uses `--deep` rather than `--brand` so it stays a dark maroon in
+     both colour schemes. `--brand` lightens in dark mode (it becomes the
+     highlight colour), which would turn the band pink. */
+  .nav-band {
+    background-color: var(--deep);
+    border-bottom: 3px solid var(--silver-mid);
+  }
+
+  /* Full-bleed ceremonial bands. These sit outside `.shell` because they are
+     meant to run to the viewport edge; only their contents are contained. */
+  .band-silver {
+    background-color: var(--silver);
+    border-block: 1px solid var(--silver-dark);
+    color: var(--ink);
+  }
+
+  .band-silver-mid {
+    background-color: var(--silver-mid);
+    border-block: 1px solid var(--silver-dark);
+    color: var(--ink);
+  }
+
+  /* The centenary panel is maroon-on-silver with the crest watermark set to
+     the right, behind the text. Decorative and inert, so it is aria-hidden in
+     the markup; here it only needs the blend and the offset. */
+  .crest-watermark {
+    mix-blend-mode: multiply;
+    opacity: 0.12;
+    pointer-events: none;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .crest-watermark {
+      mix-blend-mode: screen;
+      opacity: 0.16;
+    }
+  }
+
+  /* Hairline under an overline rule, used to close a section header. */
+  .eyebrow-rule {
+    display: block;
+    width: 2.5rem;
+    height: 2px;
+    margin-top: 0.6rem;
+    background-color: var(--gold);
+  }
+
   .gutter {
     padding-left: max(1.25rem, env(safe-area-inset-left, 0px));
     padding-right: max(1.25rem, env(safe-area-inset-right, 0px));
@@ -491,14 +584,16 @@
     height: 1px;
   }
 
-  /* The header toggles this class from a rAF-throttled scroll listener. At the
-     top of a page the header sits flush against the content, so the edge is
-     dropped; once scrolled it gains a shadow and a solid backdrop, otherwise
-     content reads as if it passes underneath a transparent strip. */
+  /* The header toggles this class from a rAF-throttled scroll listener.
+   *
+   * It sets a shadow and an edge, and deliberately *not* a background fill. The
+   * header is now three stacked bands — the maroon utility strip, the panel
+   * masthead, the maroon nav band — each painting its own opaque fill, so a fill
+   * on the parent would sit behind all three and be visible only in whatever
+   * sub-pixel gap the browser leaves between them. The shadow is what actually
+   * separates the sticky chrome from content scrolling underneath it. */
   .is-scrolled {
-    border-bottom-color: var(--field);
-    background-color: color-mix(in srgb, var(--panel) 92%, transparent);
-    box-shadow: 0 1px 24px color-mix(in srgb, var(--ink) 10%, transparent);
+    box-shadow: 0 1px 24px color-mix(in srgb, var(--ink) 16%, transparent);
   }
 
   .hide-scrollbar {
