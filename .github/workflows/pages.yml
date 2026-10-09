@@ -4,13 +4,6 @@ on:
   push:
     branches: [master]
   workflow_dispatch:
-  # Fired by the Supabase Database Webhook whenever an editor saves. The webhook
-  # calls GitHub's repository_dispatch API with event_type content-changed; the
-  # token it needs is stored in Supabase, not here.
-  #
-  # There is nothing to configure on this side beyond accepting the type below.
-  repository_dispatch:
-    types: [content-changed]
 
 permissions:
   contents: read
@@ -22,60 +15,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      # verify runs the production build itself, then lints, walks every route
-      # against a GitHub Pages-shaped static server, and checks outbound links.
-      # out/ is the artifact it leaves behind, so there is no separate build step.
-      #
-      # NEXT_PUBLIC_* values are inlined into the bundle at build time, so they
-      # have to be present here, not merely on Pages. With them set the public
-      # site is built from the database; without them it falls back to the content
-      # in src/data, and /admin renders its setup instructions. The expression
-      # below picks the source to match, so a fork with no secrets still deploys.
-      - name: Build and verify
-        run: npm run verify
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          CONTENT_SOURCE: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL != '' && 'supabase' || 'static' }}
-
-      - name: Record what was published
-        run: |
-          echo "Content source: $CONTENT_SOURCE"
-          if grep -q "The panel is not configured" out/admin/index.html; then
-            echo "::warning::Published /admin has no Supabase project attached; it will show setup instructions."
-          fi
-
-      # Belt and braces: public/.nojekyll is already copied into out/ by the
-      # build, but Pages must never run Jekyll or it will drop _next/.
-      - name: Ensure .nojekyll is present
-        run: touch out/.nojekyll
-
+      # Belt and braces: .nojekyll is committed to the tree, and Pages must never
+      # run Jekyll or it silently drops _next/ and the site deploys unstyled.
+      - run: touch .nojekyll
       - uses: actions/configure-pages@v5
-
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: out
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          path: .
+      - uses: actions/deploy-pages@v4

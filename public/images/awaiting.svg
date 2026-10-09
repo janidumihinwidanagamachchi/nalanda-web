@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" role="img" aria-label="Awaiting photograph">
-  <rect width="1200" height="900" fill="#f1ede9"/>
-  <g stroke="#d5cdc6" stroke-width="2">
-    <path d="M0 900 L1200 0" />
-    <path d="M-300 900 L900 0" />
-    <path d="M300 900 L1500 0" />
-    <path d="M900 900 L2100 0" />
-  </g>
-</svg>
